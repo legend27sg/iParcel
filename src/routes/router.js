@@ -55,6 +55,13 @@ class RouterComponent extends React.Component {
                         showAlert={this.showAlert}
                         >
 
+                        <Scene key='welcome'>
+                            <Scene 
+                                key='welcomeScreen' 
+                                component={welcomeScreen} 
+                                hideNavBar
+                            />
+                        </Scene>
                         
 
                         <Scene key='main'>

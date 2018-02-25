@@ -19,7 +19,7 @@ export default class App extends React.Component {
         return (
           <Provider store= {store}>
               <RouterComponent />
-        </Provider>
+          </Provider>
         );
   }
 

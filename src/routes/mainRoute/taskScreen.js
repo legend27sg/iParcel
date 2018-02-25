@@ -6,13 +6,17 @@ import {
     TouchableOpacity,
     Dimensions,
     FlatList,
-    InteractionManager
+    InteractionManager,
+    AsyncStorage,
+    Alert
   } from 'react-native';
 import { Actions } from 'react-native-router-flux';
 import TaskItem from '../../components/taskItem';
 import Placeholder from 'rn-placeholder';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
+import { Icon } from 'react-native-elements';
+import randomLocation from 'random-location';
 import * as actions from '../../actions';
 
 
@@ -21,7 +25,6 @@ const { width, height } = Dimensions.get('window');
 // status code
 // 0 - pending
 // 1 - accepted
-
 const mockData = [
     {
         id: '#100000001',
@@ -66,15 +69,106 @@ class taskScreen extends Component {
         super(props);
         this.state = {
           refreshing: false,
+          showMsg: false,
+          list: [],
         }
+    }
+
+    componentWillMount = () => {
+        Actions.refresh({right: this.renderRightButton});
+        this.getFirstLoad();
+        AsyncStorage.clear();
     }
 
     componentDidMount = () => {
         InteractionManager.runAfterInteractions(() => {
             // 2: Component is done animating
-            // 3: Start fetching the team
             this.getCurrentLoc();
           });
+    }
+
+    getFirstLoad = async () => {
+        try {
+            const FirstLoad = await AsyncStorage.getItem('FirstLoad');
+    
+            if (FirstLoad === null) {
+                this.setState({ showMsg: true });
+                this.SaveFirstLoad();
+            }
+    
+        } catch (error) {
+    
+        }
+    }
+
+    SaveFirstLoad = async () => {
+        try {
+            await AsyncStorage.setItem('FirstLoad', 'No');
+        } catch (error) {
+    
+        }
+    }
+
+    showMessage = () => {
+        if (this.state.showMsg === true) {
+            Alert.alert(
+                'Simulation',
+                'Adding new task based on your current location (4km range).',
+                [
+                {text: 'Cancel', onPress: () => null, style: 'cancel'},
+                {text: 'OK', onPress: () => this.handleAdd()},
+                ],
+            );
+            
+        } else {
+            this.handleAdd();
+        }
+        this.setState({ showMsg: false });
+    }
+
+    handleAdd = () => {
+        const currentLocationOrigin =  {
+            latitude: this.props.user.myLocation.latitude,
+            longitude: this.props.user.myLocation.longitude
+        }
+
+        const currentLocationDest = {
+            latitude: this.props.user.myLocation.latitude,
+            longitude: this.props.user.myLocation.longitude
+        }
+
+        // 4km range
+        const Radius = 4000;
+
+        const randomPointOrigin = randomLocation.randomCirclePoint(currentLocationOrigin, Radius);
+        const randomPointDest = randomLocation.randomCirclePoint(currentLocationDest, Radius);
+
+
+        const newTask = {
+            id: (Math.floor(Math.random() * 1000000) + 1).toString(),
+            start: {
+                lat: randomPointOrigin.latitude,
+                lng: randomPointOrigin.longitude
+            },
+            end: {
+                lat: randomPointDest.latitude,
+                lng: randomPointDest.longitude
+            },
+            status: 0
+        }
+
+        this.setState({ list: [ ...this.state.list, newTask ] });
+        // console.log(this.state.list);
+    }
+
+    renderRightButton = () => {
+        return (
+            <View style={{flexDirection: 'row'}}>
+                <TouchableOpacity onPress={(e) => {this.showMessage();}} style={{ padding: 10 }}>
+                    <Icon type="entypo" name="add-to-list" color='white' />
+                </TouchableOpacity>
+            </View>
+        );
     }
 
     renderSeparator = () => {
@@ -86,6 +180,24 @@ class taskScreen extends Component {
               // marginLeft: '14%'
             }}
           />
+        );
+    }
+
+    renderEmpty = () => {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: 0.7 * height
+                }}
+            >
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '75%'}}>
+                    <Text style={{ fontSize: 18, fontWeight: '600', textAlign: 'center'}}>Opps! Grab a coffee while waiting for your next delivery!</Text>
+                </View>
+               
+            </View>
         );
     }
 
@@ -122,9 +234,9 @@ class taskScreen extends Component {
     }
      
     // mocking reloading data from backend
-    // 2-seconds refreshing
+    // 1.5-seconds refreshing
     _onRefresh = () => {
-        setTimeout(() => {this.setState({ refreshing: true }), setTimeout(() => {this.setState({ refreshing: false })}, 2000)}, 50);
+        setTimeout(() => {this.setState({ refreshing: true }), setTimeout(() => {this.setState({ refreshing: false })}, 1500)}, 50);
     }
 
     render() {
@@ -137,7 +249,7 @@ class taskScreen extends Component {
                         this.renderPlaceholder()
                         :
                         <FlatList
-                            data={mockData}
+                            data={this.state.list}
                             renderItem={ ({item, index}) => {
                                 return <TaskItem data={item} />
                             }}
@@ -145,6 +257,7 @@ class taskScreen extends Component {
                             refreshing={this.state.refreshing}
                             keyExtractor={item => item.id}
                             ItemSeparatorComponent={this.renderSeparator}
+                            ListEmptyComponent={this.renderEmpty}
                             >
                         </FlatList>
                     }

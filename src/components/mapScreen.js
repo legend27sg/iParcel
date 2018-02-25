@@ -29,8 +29,8 @@ class mapScreen extends React.PureComponent {
         this.state = {
           loading: true,
           myLoc: {
-            latitude: null,
-            longitude: null
+            latitude: this.props.user.myLocation.latitude,
+            longitude: this.props.user.myLocation.longitude
           },
           myMarker: {
             title: 'ME',
@@ -65,12 +65,14 @@ class mapScreen extends React.PureComponent {
             longitude: this.props.data.end.lng
           },
           coords_toOrigin: [],
-          coords_toDrop: []
+          coords_toDrop: [],
+          buttonLock: false
         }
     }
 
     componentDidMount = () => {
         this.getCurrentLoc();
+        this.setState({ loading: false });
     }
 
     getCurrentLoc = () => {
@@ -113,11 +115,7 @@ class mapScreen extends React.PureComponent {
     // 1 = navigate to origin
     // 2 = navigate from origin to dropoff
     handleMove = (mode) => {
-        this.moveCar(mode);         
-    }
-
-    moveCar = (mode) => {
-
+        this.setState({ buttonLock: true });
         let arr = mode===1?this.state.coords_toOrigin:this.state.coords_toDrop;
         let genObj = genFunc();
         
@@ -128,6 +126,7 @@ class mapScreen extends React.PureComponent {
           val = genObj.next();
           
           if (val.done) {
+            this.setState({ buttonLock: false });
             clearInterval(interval);
           } else {
 
@@ -142,7 +141,7 @@ class mapScreen extends React.PureComponent {
             this._map.fitToElements(true);
 
           }
-        }, 150);
+        }, 100);
         
         function* genFunc() {
           for(let item of arr) {
@@ -155,19 +154,21 @@ class mapScreen extends React.PureComponent {
     render() {
         return(
             <View style={styles.Container} >
-                <MapView 
-                    ref={component => this._map = component}
-                    style={styles.map}
-                    provider="google"
-                    loadingEnabled
-                    // showsUserLocation
-                    onMapReady={() => {
-                        // alert('ready');
-                        // this.setState({loading: false});
-                        }}
-                >
+                {
+                    this.state.loading === false ? 
+                    <MapView 
+                        ref={component => this._map = component}
+                        style={styles.map}
+                        provider="google"
+                        loadingEnabled
+                        // showsUserLocation
+                        onMapReady={() => {
+                            // alert('ready');
+                            // this.setState({loading: false});
+                            }}
+                    >
 
-                    <MapViewDirections
+                        <MapViewDirections
                                 origin={this.state.origin}
                                 destination={this.state.destination}
                                 apikey={GOOGLE_MAPS_APIKEY}
@@ -180,90 +181,122 @@ class mapScreen extends React.PureComponent {
                                 onError={(errorMessage) => {
                                     console.log(errorMessage);
                                 }}
-                    />
-
-
-                    <MapViewDirections
-                            origin={this.state.myLoc}
-                            destination={this.state.origin}
-                            apikey={GOOGLE_MAPS_APIKEY}
-                            mode="driving"
-                            strokeWidth={3}
-                            strokeColor="grey"
-                            onReady={(result) => { 
-                                this._map.fitToCoordinates(result.coordinates, {
-                                edgePadding: {
-                                    right: (width / 20),
-                                    bottom: (height / 20),
-                                    left: (width / 20),
-                                    top: (height / 20),
-                                }
-                                });
-                                this.setState({ coords_toOrigin: result.coordinates });
-                            }}      
-                            onError={(errorMessage) => {
-                                console.log(errorMessage);
-                            }}
-                    />
-                    
-                    {this.state.markers.map((marker, index) => (
-                        <MapView.Marker 
-                            key={index}
-                            pinColor={marker.pinColor}
-                            coordinate={marker.coordinates}
-                            title={marker.title}
                         />
-                    ))}
 
-                    <MapView.Marker.Animated
-                        coordinate={this.state.myMarker.coordinates}
-                        // image={require('../../assets/car.png')}
-                        pinColor="black"
-                    />
 
-                </MapView>
+                        <MapViewDirections
+                                origin={this.state.myLoc}
+                                destination={this.state.origin}
+                                apikey={GOOGLE_MAPS_APIKEY}
+                                mode="driving"
+                                strokeWidth={3}
+                                strokeColor="grey"
+                                onReady={(result) => { 
+                                    this._map.fitToCoordinates(result.coordinates, {
+                                    edgePadding: {
+                                        right: (width / 20),
+                                        bottom: (height / 20),
+                                        left: (width / 20),
+                                        top: (height / 20),
+                                    }
+                                    });
+                                    this.setState({ coords_toOrigin: result.coordinates });
+                                }}      
+                                onError={(errorMessage) => {
+                                    console.log(errorMessage);
+                                }}
+                        />
+                        
+                        {this.state.markers.map((marker, index) => (
+                            <MapView.Marker 
+                                key={index}
+                                pinColor={marker.pinColor}
+                                coordinate={marker.coordinates}
+                                title={marker.title}
+                            />
+                        ))}
 
-                <TouchableOpacity style={styles.navigateButton} onPress={() => {
-                    this.openGps();
-                }}>
-                    <Icon
-                        name='md-navigate'
-                        type='ionicon'
-                        color='black'
-                        size={38}
-                    />
-                    <Text>Go!</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.navToOrigin} onPress={() => {
-                    this.handleMove(1);
-                }}>
-                    <Text adjustsFontSizeToFit style={{ color: 'black', fontSize: 16, fontWeight: '600' }}>Move (PickUp)</Text>
-                </TouchableOpacity>
+                        <MapView.Marker.Animated
+                            coordinate={this.state.myMarker.coordinates}
+                            // image={require('../../assets/car.png')}
+                            pinColor="black"
+                        />
 
-                <TouchableOpacity style={styles.navToDrop} onPress={() => {
-                    this.handleMove(2);
-                }}>
-                    <Text adjustsFontSizeToFit style={{ color: 'black', fontSize: 16, fontWeight: '600' }}>Move (DropOff)</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.simulateButton} onPress={() => {
-                    this.props.showAlert({
-                        title: 'Notification',
-                        message: 'New ad-hoc job pending..',
-                        alertType: 'success',
-                    });
-                    Alert.alert(
-                        'Attention!',
-                        'New ad-hoc task added. Proceed to location?',
-                        [
-                        {text: 'Cancel', onPress: () => this.setState({loading: false}), style: 'cancel'},
-                        {text: 'OK', onPress: () => this.handleSimulation()},
-                        ],
-                    );
-                }}>
-                    <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>Simulate</Text>
-                </TouchableOpacity>
+                    </MapView>
+                    :
+                    null
+                }
+                    
+                {
+                    this.state.buttonLock?
+                    <View style={styles.text}>
+                        <Text style={{ color: 'red', fontSize: 24, fontWeight: 'bold' }}>Simulating...</Text>
+                    </View>
+                    :
+                    null
+                }    
+
+                {
+                    this.state.buttonLock? 
+                    null
+                    :
+                    <TouchableOpacity style={styles.navigateButton} onPress={() => {
+                        this.openGps();
+                    }}>
+                        <Icon
+                            name='md-navigate'
+                            type='ionicon'
+                            color='black'
+                            size={38}
+                        />
+                        <Text>Go!</Text>
+                    </TouchableOpacity>
+                }
+                    
+                {
+                    this.state.buttonLock?
+                    null
+                    :
+                    <TouchableOpacity style={styles.navToOrigin} onPress={() => {
+                        this.handleMove(1);
+                    }}>
+                        <Text adjustsFontSizeToFit style={{ color: 'black', fontSize: 16, fontWeight: '600' }}>Move (PickUp)</Text>
+                    </TouchableOpacity>
+                }
+                    
+                {
+                    this.state.buttonLock?
+                    null
+                    :
+                    <TouchableOpacity style={styles.navToDrop} onPress={() => {
+                        this.handleMove(2);
+                    }}>
+                        <Text adjustsFontSizeToFit style={{ color: 'black', fontSize: 16, fontWeight: '600' }}>Move (DropOff)</Text>
+                    </TouchableOpacity>
+                }
+                    
+                {
+                    this.state.buttonLock?
+                    null
+                    :
+                    <TouchableOpacity style={styles.simulateButton} onPress={() => {
+                        this.props.showAlert({
+                            title: 'Notification',
+                            message: 'New ad-hoc job pending..',
+                            alertType: 'success',
+                        });
+                        Alert.alert(
+                            'Attention!',
+                            'New ad-hoc task added. Proceed to location?',
+                            [
+                            {text: 'Cancel', onPress: () => this.setState({loading: false}), style: 'cancel'},
+                            {text: 'OK', onPress: () => this.handleSimulation()},
+                            ],
+                        );
+                    }}>
+                        <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>Simulate</Text>
+                    </TouchableOpacity>
+                }
             </View>
         );
     }
@@ -322,6 +355,17 @@ const styles = StyleSheet.create({
         height: 50, 
         width: 100, 
         backgroundColor: 'white',
+        borderRadius: 5,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    text: {
+        position: 'absolute', 
+        top: 20, 
+        left: 135, 
+        height: 50, 
+        width: 150, 
+        backgroundColor: 'transparent',
         borderRadius: 5,
         alignItems: 'center',
         justifyContent: 'center'
