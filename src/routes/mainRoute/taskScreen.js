@@ -22,48 +22,6 @@ import * as actions from '../../actions';
 
 const { width, height } = Dimensions.get('window');
 
-// status code
-// 0 - pending
-// 1 - accepted
-const mockData = [
-    {
-        id: '#100000001',
-        start: {
-            lat: 1.3039899,
-            lng: 103.8748268
-        },
-        end: {
-            lat: 1.280270,
-            lng: 103.85195
-        },
-        status: 0
-    },
-    {
-        id: '#100000002',
-        start: {
-            lat: 1.290270,
-            lng: 103.85195
-        },
-        end: {
-            lat: 1.280270,
-            lng: 103.85195
-        },
-        status: 0
-    },
-    {
-        id: '#100000003',
-        start: {
-            lat: 1.290270,
-            lng: 103.85195
-        },
-        end: {
-            lat: 1.280270,
-            lng: 103.85195
-        },
-        status: 0
-    },
-];
-
 class taskScreen extends Component {
     constructor(props) {
         super(props);
@@ -143,7 +101,9 @@ class taskScreen extends Component {
         const randomPointOrigin = randomLocation.randomCirclePoint(currentLocationOrigin, Radius);
         const randomPointDest = randomLocation.randomCirclePoint(currentLocationDest, Radius);
 
-
+        // status code
+        // 0 - pending
+        // 1 - accepted
         const newTask = {
             id: (Math.floor(Math.random() * 1000000) + 1).toString(),
             start: {
@@ -158,7 +118,7 @@ class taskScreen extends Component {
         }
 
         this.setState({ list: [ ...this.state.list, newTask ] });
-        // console.log(this.state.list);
+
     }
 
     renderRightButton = () => {

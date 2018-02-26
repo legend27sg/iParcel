@@ -18,9 +18,12 @@ import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import * as actions from '../actions';
 import { Icon } from 'react-native-elements';
+import randomLocation from 'random-location';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
+const LATITUDE_DELTA = 0.00002;
+const LONGTITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 const GOOGLE_MAPS_APIKEY = 'AIzaSyAcLxVkdQVTPB19GnT4S-ii7IvfzigTLyQ';
 
 class mapScreen extends React.PureComponent {
@@ -31,6 +34,18 @@ class mapScreen extends React.PureComponent {
           myLoc: {
             latitude: this.props.user.myLocation.latitude,
             longitude: this.props.user.myLocation.longitude
+          },
+          origin: {
+            latitude: this.props.data.start.lat,
+            longitude: this.props.data.start.lng
+          },
+          destination: {
+            latitude: this.props.data.end.lat,
+            longitude: this.props.data.end.lng
+          },
+          adhoc: {
+              latitude: null,
+              longitude: null,
           },
           myMarker: {
             title: 'ME',
@@ -56,17 +71,11 @@ class mapScreen extends React.PureComponent {
             },  
           },
         ],
-          origin: {
-            latitude: this.props.data.start.lat,
-            longitude: this.props.data.start.lng
-          },
-          destination: {
-            latitude: this.props.data.end.lat,
-            longitude: this.props.data.end.lng
-          },
           coords_toOrigin: [],
           coords_toDrop: [],
-          buttonLock: false
+          coords_toAdHoc: [],
+          buttonLock: false,
+          adhoc_simulate: false,
         }
     }
 
@@ -90,11 +99,64 @@ class mapScreen extends React.PureComponent {
     }
 
     handleSimulation = () => {
+
+        // 1km radius
+        const radius = 1000;
+
+        // simulating moving to mid journey, getting the mid latlong
+        const count_before = this.state.coords_toOrigin.length / 2;
+        const count_int = count_before.toFixed(0);
+
+        const midjourney = {
+            coordinates: {
+                latitude: this.state.coords_toOrigin[count_int].latitude,
+                longitude: this.state.coords_toOrigin[count_int].longitude
+            }
+        }
+
+        if(Platform.OS === 'android') {
+            const coordinates = {
+                latitude: this.state.coords_toOrigin[count_int].latitude,
+                longitude: this.state.coords_toOrigin[count_int].longitude
+            }
+
+            this.marker._component.animateMarkerToCoordinate(coordinates, 500);
+        } else {
+            this.setState({ myMarker: midjourney });
+        }
+
+        const coordinates = {
+            latitude: this.state.coords_toOrigin[count_int].latitude,
+            longitude: this.state.coords_toOrigin[count_int].longitude
+        }
         
+        // saving current location
+        this.setState({ myLoc: coordinates });
+
+        // adding adhoc point from current location
+        const randomPoint = randomLocation.randomCirclePoint(this.state.myLoc, radius);
+
+        const randomPointFromOrigin = {
+            latitude: randomPoint.latitude,
+            longitude: randomPoint.longitude
+        }
+
+        this.setState({ adhoc: randomPointFromOrigin, adhoc_simulate: true });
+
+        // move to ahhoc
+        Alert.alert(
+            'Attention!',
+            'New ad-hoc task added based on your location. Take note of orange color pin',
+            [
+            {text: 'Cancel', onPress: () => null, style: 'cancel'},
+            {text: 'OK', onPress: () => this.handleMove(3)},
+            ],
+        );
+         
     }
 
     openGps = () => {
-        var scheme = Platform.OS === 'ios' ? 'http://maps.apple.com/?daddr=' : 'geo:';
+        var scheme = Platform.OS === 'ios' ? 'http://maps.apple.com/?daddr=' : 'http://maps.google.com/?daddr=';
         const latLng = `${this.state.origin.latitude},${this.state.origin.longitude}`;
         var url = scheme + latLng;
         // console.log(url);
@@ -114,9 +176,24 @@ class mapScreen extends React.PureComponent {
     // mode
     // 1 = navigate to origin
     // 2 = navigate from origin to dropoff
+    // 3 = navigate to adhoc
     handleMove = (mode) => {
+
         this.setState({ buttonLock: true });
-        let arr = mode===1?this.state.coords_toOrigin:this.state.coords_toDrop;
+        let arr = [];
+
+        if(mode === 1){
+            arr = this.state.coords_toOrigin;
+        }
+
+        if(mode === 2){
+            arr = this.state.coords_toDrop;
+        }
+
+        if(mode === 3){
+            arr = this.state.coords_toAdHoc;
+        }
+
         let genObj = genFunc();
         
         let val = genObj.next();
@@ -138,7 +215,15 @@ class mapScreen extends React.PureComponent {
             };
             this.setState({ myMarker: myMarker });
 
-            this._map.fitToElements(true);
+            // this._map.fitToElements(true);
+            this._map.fitToCoordinates(arr, {
+                edgePadding: {
+                  right: Platform.OS==="android"?100:(width / 20),
+                  bottom: Platform.OS==="android"?100:(height / 20),
+                  left: Platform.OS==="android"?100:(width / 20),
+                  top: Platform.OS==="android"?100:(height / 20),
+                }
+              });
 
           }
         }, 100);
@@ -161,11 +246,13 @@ class mapScreen extends React.PureComponent {
                         style={styles.map}
                         provider="google"
                         loadingEnabled
-                        // showsUserLocation
-                        onMapReady={() => {
-                            // alert('ready');
-                            // this.setState({loading: false});
-                            }}
+                        initialRegion={{
+                            latitude: this.state.origin.latitude,
+                            longitude: this.state.origin.longitude,
+                            latitudeDelta: LATITUDE_DELTA,
+                            longitudeDelta: LONGTITUDE_DELTA
+                            
+                        }}
                     >
 
                         <MapViewDirections
@@ -183,7 +270,6 @@ class mapScreen extends React.PureComponent {
                                 }}
                         />
 
-
                         <MapViewDirections
                                 origin={this.state.myLoc}
                                 destination={this.state.origin}
@@ -194,10 +280,10 @@ class mapScreen extends React.PureComponent {
                                 onReady={(result) => { 
                                     this._map.fitToCoordinates(result.coordinates, {
                                     edgePadding: {
-                                        right: (width / 20),
-                                        bottom: (height / 20),
-                                        left: (width / 20),
-                                        top: (height / 20),
+                                        right: 100,
+                                        bottom: 100,
+                                        left: 100,
+                                        top: 100,
                                     }
                                     });
                                     this.setState({ coords_toOrigin: result.coordinates });
@@ -217,10 +303,42 @@ class mapScreen extends React.PureComponent {
                         ))}
 
                         <MapView.Marker.Animated
+                            ref={marker => { this.marker = marker; }}
                             coordinate={this.state.myMarker.coordinates}
                             // image={require('../../assets/car.png')}
-                            pinColor="black"
+                            pinColor="violet"
                         />
+
+                        {
+                            this.state.adhoc_simulate?
+                            <MapView.Marker
+                                coordinate={this.state.adhoc}
+                                pinColor="orange"
+                                title="Ad-hoc task"
+                            />
+                            :
+                            null
+                        }
+
+                        {
+                            this.state.adhoc_simulate?
+                            <MapViewDirections
+                                origin={this.state.myLoc}
+                                destination={this.state.adhoc}
+                                apikey={GOOGLE_MAPS_APIKEY}
+                                mode="driving"
+                                strokeWidth={3}
+                                strokeColor="orange"
+                                onReady={(result) => {
+                                    this.setState({ coords_toAdHoc: result.coordinates });
+                                }}
+                                onError={(errorMessage) => {
+                                    console.log(errorMessage);
+                                }}
+                            />
+                            :
+                            null    
+                        }
 
                     </MapView>
                     :
@@ -281,15 +399,15 @@ class mapScreen extends React.PureComponent {
                     :
                     <TouchableOpacity style={styles.simulateButton} onPress={() => {
                         this.props.showAlert({
-                            title: 'Notification',
-                            message: 'New ad-hoc job pending..',
+                            title: 'Simulation',
+                            message: 'Adding adhoc delivery..',
                             alertType: 'success',
                         });
                         Alert.alert(
-                            'Attention!',
-                            'New ad-hoc task added. Proceed to location?',
+                            'Simulation',
+                            'Adding adhoc delivery..',
                             [
-                            {text: 'Cancel', onPress: () => this.setState({loading: false}), style: 'cancel'},
+                            {text: 'Cancel', onPress: () => null, style: 'cancel'},
                             {text: 'OK', onPress: () => this.handleSimulation()},
                             ],
                         );
@@ -342,7 +460,7 @@ const styles = StyleSheet.create({
         bottom: 30, 
         left: 30, 
         height: 50, 
-        width: 100, 
+        width: 120, 
         backgroundColor: 'white',
         borderRadius: 5,
         alignItems: 'center',
@@ -353,7 +471,7 @@ const styles = StyleSheet.create({
         bottom: 30, 
         left: 155, 
         height: 50, 
-        width: 100, 
+        width: 120, 
         backgroundColor: 'white',
         borderRadius: 5,
         alignItems: 'center',

@@ -105,16 +105,11 @@ class taskItem extends React.PureComponent {
                             showsScale
                             showsBuildings
                             showsIndoors
-                            liteMode
                             loadingEnabled
-                            // showsUserLocation
                             zoomEnabled={false}
                             scrollEnabled={false}
                             pitchEnabled={false}
                             rotateEnabled={false}
-                            onMapReady={() => {
-                                // this._map.fitToElements(true);
-                            }}
                         >
                             {this.state.markers.map((marker, index) => (
                                 <MapView.Marker 
@@ -124,6 +119,7 @@ class taskItem extends React.PureComponent {
                                     title={marker.title}
                                 />
                             ))}
+                            
                             <MapViewDirections
                                 origin={this.state.origin}
                                 destination={this.state.destination}
@@ -134,16 +130,16 @@ class taskItem extends React.PureComponent {
                                 onReady={(result) => {
                                     this._map.fitToCoordinates(result.coordinates, {
                                       edgePadding: {
-                                        right: (width / 20),
-                                        bottom: (height / 20),
-                                        left: (width / 20),
-                                        top: (height / 20),
+                                        right: Platform.OS==="android"?100:(width / 20),
+                                        bottom: Platform.OS==="android"?100:(height / 20),
+                                        left: Platform.OS==="android"?100:(width / 20),
+                                        top: Platform.OS==="android"?100:(height / 20),
                                       }
                                     });
                                   }}
-                                  onError={(errorMessage) => {
-                                     console.log(errorMessage);
-                                  }}
+                                onError={(errorMessage) => {
+                                    console.log(errorMessage);
+                                }}
                             />
                         </MapView>
                     </View>
@@ -191,7 +187,6 @@ class taskItem extends React.PureComponent {
                                     this.state.status === 1 ? 
                                       <TouchableOpacity style={[styles.buttonView, {backgroundColor: 'grey'}]} onPress={() => {
                                           Actions.mapScreen({ title: "JOB " + item.id, data: this.props.data });
-                                          // this.setState({ status: 1 });
                                       }}>
                                           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                               <Icon
